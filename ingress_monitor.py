@@ -24,7 +24,7 @@ import textwrap
 import time
 from pathlib import Path
 
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 LINE_WIDTH = 120       # ancho maximo de linea; los textos mas largos se cortan
 SAVE_PATH = Path.home() / ".ingress_monitor_state.json"
 START_DATE = dt.date(1984, 3, 1)
@@ -314,38 +314,41 @@ def hhmm(minutes):
 # ---------------------------------------------------------------------------
 # Emblema
 # ---------------------------------------------------------------------------
-# Aguila heraldica de perfil, en pleno vuelo: mira a la izquierda, alas desplegadas y garras al frente.
-EAGLE = r"""
-                                                                         ,
-                                                                    _.-'/|
-                                                               _.-'/// / |
-                                                          _.-'//////  /  /
-                                                     _.-'/////////   /  /
-                                                _.-'////////////    /  /|
-                                           _.-'///////////////     /  / |
-                                      _.-'//////////////////      /  /  /
-                                 _.-'/////////////////////       /  /  /
-               ______       _.-'////////////////////////        /  /  /
-           _.-'  ___ '-._.-'///////////////////////////        /  /  /
-         .'    _(@)=-   \//////////////////////////////       /  /  /
-      __/                \#############################.     /  /  /
-     /__  ._              \################################._/  /  /
-      \/   '--.__          '#########################################.___
-                 '--.__     #############################################===---
-                       '--. '#########################################////'''
-                           \ '\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-                          /|\  '\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\.
-                         //|\\   '\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\.
-                                   '\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\.
-                                     '\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\.
-                                       '\\\\\\\\\\\\\  '\\\\\\\\\\\  '\\\\\\\\\\\.
+_MIRROR = str.maketrans("/\\()<>[]{}", "\\/)(><][}{")
+
+# Aguila de frente estilo sello: alas alzadas con plumas en punta, escudo en el pecho y flechas en las garras.
+# Es la mitad izquierda; el caracter justo antes de "$" es la columna central y la mitad derecha se refleja.
+EAGLE_HALF = r"""
+/\                                    $
+\\/\                                  $
+ \\\\/\                               $
+  \\\\\\/\                            $
+   \\\\\\\\/\                         $
+    \\\\\\\\\\/\                      $
+     \\\\\\\\\\\\/\              _____$
+      \\\\\\\\\\\\\\/\          / \_  $
+       \\\\\\\\\\\\\\\\/\       |  o  $
+        \\\\\\\\\\\\\\\\\\/\    \    V$
+         \\\\\\\\\\\\\\\\\\\\/\  \   v$
+          \\\\\\\\\\\\\\\\\\\\\\/\_\__$
+           \\\\\\\\\\\\\\\\\\\\\\\|###$
+            \\\\\\\\\\\\\\\\\\\\\\|###$
+             \/\/\/\/\/\/\\\\\\\\\|###$
+                         \/\/\/\/\|###$
+                                  |###$
+                                   \##$
+                             <<----/\ $
+                                 / /\\$
+                                /_/  \$
 """
 
 
 def eagle_lines():
-    lines = EAGLE.strip("\n").split("\n")
-    width = max(len(ln) for ln in lines)
-    return [ln.ljust(width) for ln in lines]
+    out = []
+    for row in EAGLE_HALF.strip("\n").split("\n"):
+        left, mid = row[:-2], row[-2]
+        out.append(left + mid + left[::-1].translate(_MIRROR))
+    return out
 
 
 def show_emblem():

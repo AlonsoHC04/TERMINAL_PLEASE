@@ -3,6 +3,13 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y [Versionado Semántico](https://semver.org/lang/es/): `MAYOR.MENOR.PARCHE`.
 
+## [1.1.2] - 2026-10-02
+
+### Cambiado
+- Se descarta el águila de perfil y se vuelve a un águila vista de frente, ahora estilo sello
+  (tipo FBI): alas alzadas con plumas terminadas en punta (`/\`) y bordes de sierra en lugar de
+  curvas, cabeza con ceño, escudo en el pecho y flechas en las garras.
+
 ## [1.1.1] - 2026-10-02
 
 ### Cambiado

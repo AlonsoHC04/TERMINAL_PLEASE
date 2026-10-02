@@ -3,6 +3,12 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y [Versionado Semántico](https://semver.org/lang/es/): `MAYOR.MENOR.PARCHE`.
 
+## [1.1.3] - 2026-10-02
+
+### Cambiado
+- El emblema ahora es el águila elegida por el autor, dibujada tal cual y centrada como bloque
+  sobre el texto del banner. Reemplaza a todas las águilas anteriores.
+
 ## [1.1.2] - 2026-10-02
 
 ### Cambiado

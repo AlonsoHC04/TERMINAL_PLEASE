@@ -24,7 +24,7 @@ import textwrap
 import time
 from pathlib import Path
 
-VERSION = "1.1.2"
+VERSION = "1.1.3"
 LINE_WIDTH = 120       # ancho maximo de linea; los textos mas largos se cortan
 SAVE_PATH = Path.home() / ".ingress_monitor_state.json"
 START_DATE = dt.date(1984, 3, 1)
@@ -314,54 +314,44 @@ def hhmm(minutes):
 # ---------------------------------------------------------------------------
 # Emblema
 # ---------------------------------------------------------------------------
-_MIRROR = str.maketrans("/\\()<>[]{}", "\\/)(><][}{")
-
-# Aguila de frente estilo sello: alas alzadas con plumas en punta, escudo en el pecho y flechas en las garras.
-# Es la mitad izquierda; el caracter justo antes de "$" es la columna central y la mitad derecha se refleja.
-EAGLE_HALF = r"""
-/\                                    $
-\\/\                                  $
- \\\\/\                               $
-  \\\\\\/\                            $
-   \\\\\\\\/\                         $
-    \\\\\\\\\\/\                      $
-     \\\\\\\\\\\\/\              _____$
-      \\\\\\\\\\\\\\/\          / \_  $
-       \\\\\\\\\\\\\\\\/\       |  o  $
-        \\\\\\\\\\\\\\\\\\/\    \    V$
-         \\\\\\\\\\\\\\\\\\\\/\  \   v$
-          \\\\\\\\\\\\\\\\\\\\\\/\_\__$
-           \\\\\\\\\\\\\\\\\\\\\\\|###$
-            \\\\\\\\\\\\\\\\\\\\\\|###$
-             \/\/\/\/\/\/\\\\\\\\\|###$
-                         \/\/\/\/\|###$
-                                  |###$
-                                   \##$
-                             <<----/\ $
-                                 / /\\$
-                                /_/  \$
+# Aguila elegida por el autor del juego. Se dibuja tal cual; solo se centra sobre el texto del banner.
+EAGLE = r"""
+                              /
+               \             / /
+                \\\' ,      / //
+                 \\\//,   _/ //,
+                  \_-//' /  //<,
+                    \ ///  >  \\\`__/_
+                    /,)-^>> _\` \\\
+                    (/   \\ //\\
+                        // _//\\\\
+                      ((` ((
 """
+
+BANNER = [
+    ("*  *  *   GLORIA A VOSTROKIA   *  *  *", ("byellow", "bold")),
+    ("MINISTERIO DE ADMISION  -  PUESTO REMOTO WS-07", ("yellow",)),
+    (f"ingress-monitor v{VERSION}  (c) 1984 Directorio de Sistemas", ("gray",)),
+]
 
 
 def eagle_lines():
-    out = []
-    for row in EAGLE_HALF.strip("\n").split("\n"):
-        left, mid = row[:-2], row[-2]
-        out.append(left + mid + left[::-1].translate(_MIRROR))
-    return out
+    lines = textwrap.dedent(EAGLE.strip("\n")).split("\n")
+    width = max(len(ln) for ln in lines)
+    return [ln.ljust(width) for ln in lines]
 
 
 def show_emblem():
     clear()
-    width = len(eagle_lines()[0])
+    eagle = eagle_lines()
+    width = max(len(eagle[0]), *(len(text) for text, _ in BANNER))
+    offset = " " * ((width - len(eagle[0])) // 2)  # centra el aguila como bloque, sin deformarla
     print()
-    for line in eagle_lines():
-        print("  " + c(line, "red", "bold"))
+    for line in eagle:
+        print("  " + offset + c(line, "red", "bold"))
         pause(0.03, 0.07)
     print()
-    for text, style in [("*  *  *   GLORIA A VOSTROKIA   *  *  *", ("byellow", "bold")),
-                        ("MINISTERIO DE ADMISION  -  PUESTO REMOTO WS-07", ("yellow",)),
-                        (f"ingress-monitor v{VERSION}  (c) 1984 Directorio de Sistemas", ("gray",))]:
+    for text, style in BANNER:
         print("  " + c(text.center(width), *style))
         pause(0.1, 0.2)
     print()

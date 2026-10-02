@@ -44,12 +44,32 @@ Opciones extra al lanzarlo (también funcionan con `jugar.bat` / `jugar.sh`):
 
 ## Cómo se juega
 
-Cada solicitante llega como un bloque de logs (`passport.parser`, `permit.parser`,
-`workpass.parser`, `vaxcert.parser`, `biometrics.scale`...). Compara los campos
-contra la política del día y decide.
+Cada solicitante llega como unas líneas de log (a veces dice algo: un saludo, una
+queja o un comentario sospechoso sobre sus papeles). Sus documentos se montan
+como carpetas en `./docs`, y los revisas navegando como en cualquier terminal:
+
+```
+PS C:\dev\ingress-svc> cd docs
+passport/  entry_permit/  vax_cert/  biometrics/
+PS C:\dev\ingress-svc\docs> cd passport
+# docs/passport/passport.yaml   sid=a17ddf
+  name        : POPESCU, Viktor
+  nation      : Kastrelia
+  issuer_city : Merin
+  pid         : KS-D19E-19
+  exp         : 1985-08-07
+PS C:\dev\ingress-svc\docs\passport> cd ..
+```
+
+Compara los campos entre documentos y contra la política del día, y decide.
 
 | Comando | Qué hace |
 |---|---|
+| `cd docs` | entrar a la carpeta de documentos del solicitante |
+| `cd <documento>` | abrir un documento (`passport`, `entry_permit`, `work_pass`, `vax_cert`, `biometrics`); acepta abreviaturas como `cd pa` |
+| `cd ..` / `cd ~` | subir un nivel / volver a la raíz |
+| `ls` / `dir` | listar la carpeta actual |
+| `cat <documento>` | ver un documento sin entrar a él |
 | `a` / `approve` | aprobar |
 | `d [motivo]` / `deny` | denegar (si el motivo es correcto, +2cr de bono) |
 | `rules` | política vigente: ciudades válidas, sellos, buscados, etc. |
@@ -62,7 +82,16 @@ Motivos: `expired nation missing name id city weight wanted vaccine seal`.
 
 Cada día se agregan reglas nuevas (10 días en total). Al final del turno pagas
 renta, comida, calefacción y medicina para tu familia. Jorji Costava aparece de
-vez en cuando, en la fila y por chat.
+vez en cuando, en la fila y por chat, y tus compañeros de otros puestos también
+escriben de vez en cuando.
+
+Ningún texto pasa de 80 caracteres por línea: los mensajes largos se cortan y
+continúan alineados debajo.
+
+## Versiones
+
+La versión actual se ve con `python ingress_monitor.py --version` y en el
+emblema al iniciar. Los cambios de cada versión están en [CHANGELOG.md](CHANGELOG.md).
 
 ## Partidas guardadas
 

@@ -20,10 +20,12 @@ import json
 import os
 import random
 import sys
+import textwrap
 import time
 from pathlib import Path
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
+LINE_WIDTH = 80        # ancho maximo de linea; los textos mas largos se cortan
 SAVE_PATH = Path.home() / ".ingress_monitor_state.json"
 START_DATE = dt.date(1984, 3, 1)
 LAST_DAY = 10
@@ -144,6 +146,70 @@ MINISTRY_MSGS = [
     "Un mensaje de su supervisor: 'sigo esperando el reporte'. No sabemos cual reporte.",
 ]
 
+COWORKER_MSGS = [
+    ("ivanka.ws03", "Alguien sabe si hoy pagan? Mi refrigerador hace eco."),
+    ("ivanka.ws03", "Me acaba de pasar un tipo con pasaporte de Jorjigrad. Jorjigrad! Ustedes tambien?"),
+    ("petr.ws11", "Tip: la bascula nunca miente. La gente si."),
+    ("petr.ws11", "Mi supervisor me pidio 'mas productividad'. Le aprobe a su suegra. Ya no me habla."),
+    ("milos.ws05", "Se me fue la luz 20 minutos. Les juro que el pasaporte del abuelo parecia valido."),
+    ("milos.ws05", "Alguien tiene la lista de sellos de hoy? La mia la uso mi hijo para dibujar."),
+    ("ivanka.ws03", "Recuerden revisar las ciudades. Kastel no es de Ulmeria, por mucho que insistan."),
+    ("petr.ws11", "Si ven a un tal Costava, saluden de mi parte. Me debe 5 creditos."),
+]
+
+# Lo que dicen los solicitantes al llegar. A veces dan pistas sobre sus documentos... o no.
+GREETINGS = [
+    "Buenos dias.", "Buen dia, camarada.", "Hola.", "...", "Gloria a Vostrokia.",
+    "Buenas. Larga fila hoy.", "Hola? Me escucha? Creo que se congelo su camara.",
+    "Buenos dias. Esto es por videollamada? Que moderno.", "Buenas tardes. O dias. Ya no se.",
+]
+SMALLTALK = [
+    "Llevo seis horas en la fila. Seis.", "Esta conexion es muy lenta. Como todo aqui.",
+    "Mi hijo tiene fiebre, por favor rapido.", "Escuche que la renta subio otra vez.",
+    "Tiene usted cara de cansado. Bueno, su camara.", "Hace frio. Siempre hace frio.",
+    "Estoy nervioso, es mi primera vez cruzando.", "Todos mis papeles estan en orden. Creo.",
+    "Mi primo trabaja en el ministerio. No es amenaza, solo comentario.",
+    "Por favor no me pregunte nada dificil, no he desayunado.",
+]
+HOME_LINES = [
+    "Por fin en casa. Tres meses fuera.", "Vuelvo de visitar a mi madre. No pregunte.",
+    "Soy de aqui. Nacido y congelado aqui.", "Regreso de un viaje de trabajo. Nada interesante.",
+]
+PURPOSE_LINES = {
+    "WORK": ["Vengo a trabajar. Dicen que pagan en pan.", "Trabajo en la mina. O en lo que haya.",
+             "Me ofrecieron empleo. Espero que exista."],
+    "VISIT": ["Solo vengo a visitar a mi hermana. Dos semanas, lo prometo.",
+              "Visita familiar. Mi tia cumple 90. O 91."],
+    "TRANSIT": ["Solo estoy de paso. Sin ofender, no me quedaria aqui.",
+                "Voy hacia el norte. Mas frio, pero mas barato."],
+    "IMMIGRATE": ["Quiero empezar una nueva vida aqui. Una mas fria.",
+                  "Me mudo con todo. Bueno, con esta maleta."],
+}
+FLAW_LINES = {
+    "pass_expired": ["Mi pasaporte... creo que todavia sirve. Lo renuevo la proxima semana."],
+    "city": ["El pasaporte me lo tramito mi primo. El conoce gente.",
+             "Lo saque en otra ciudad. Es lo mismo, no?"],
+    "permit_missing": ["El permiso? Pense que con el pasaporte bastaba."],
+    "permit_name": ["Si, el permiso tiene una letrita distinta. Error del ministerio, no mio."],
+    "permit_id": ["Saque pasaporte nuevo hace poco. El permiso es del viejo, pero es igual."],
+    "permit_expired": ["El permiso vencio hace poco, pero ya estoy aqui, no?"],
+    "weight": ["He comido mucho ultimamente. O muy poco. Depende de la semana."],
+    "seal": ["El sello me lo pusieron en una oficina... muy oficial. Con cortinas."],
+    "wp_missing": ["Vengo a trabajar. Los papeles de trabajo los trae mi jefe. Despues."],
+    "wp_name": ["El pase de trabajo es de mi hermano. Somos casi iguales."],
+    "wp_expired": ["Mi pase de trabajo esta un poco vencido. Pero sigo sabiendo trabajar."],
+    "vax_missing": ["Vacunas? Nunca me enfermo. Tengo buena sangre."],
+    "vax_nopolio": ["Tengo todas las vacunas. Bueno, casi todas."],
+    "vax_id": ["El certificado lo hizo una enfermera muy ocupada."],
+    "vax_name": ["El certificado lo hizo una enfermera muy ocupada."],
+    "wanted": ["Por que me mira asi? Nunca he estado en ningun lado. Nunca."],
+    "banned": ["Se que mi pais esta en problemas. Por favor, yo no hice nada."],
+}
+REACT_APPROVED = ["Gracias.", "Gloria a Vostrokia!", "Por fin.", "Que tenga buen dia.",
+                  "Gracias, camarada. Saludos a su camara."]
+REACT_DENIED = ["Esto es injusto!", "Volvere con los papeles correctos.", "Mi familia me espera...",
+                "Bah.", "Pero... vine desde tan lejos.", "Quiero hablar con su supervisor."]
+
 # ---------------------------------------------------------------------------
 # Salida / colores
 # ---------------------------------------------------------------------------
@@ -171,12 +237,32 @@ def pause(lo=0.01, hi=0.06):
 
 def ts():
     now = dt.datetime.now()
-    return now.strftime("%Y-%m-%d %H:%M:%S.") + f"{now.microsecond // 1000:03d}"
+    return now.strftime("%H:%M:%S.") + f"{now.microsecond // 1000:03d}"
 
 
-def log(level, comp, msg):
-    comp_txt = f"[{comp}]".ljust(20)
-    print(f"{c(ts(), 'gray')} {c(level.ljust(5), *LEVEL_STYLE[level])} {c(comp_txt, 'blue')} {msg}")
+def wrap(text, width):
+    """Corta el texto en lineas de como maximo `width` caracteres."""
+    return textwrap.wrap(text, width, break_on_hyphens=False) or [""]
+
+
+def say(text, indent=2, style=None):
+    """print() con salto de linea a LINE_WIDTH; las lineas de continuacion conservan la sangria."""
+    lead = len(text) - len(text.lstrip(" "))
+    pad = " " * (indent + lead)
+    for ln in wrap(text.strip(" "), LINE_WIDTH - len(pad)):
+        print(pad + (c(ln, *style) if style else ln))
+
+
+def log(level, comp, msg, style=None):
+    """Linea de log. Si el mensaje no cabe en LINE_WIDTH se parte y se alinea bajo la columna del mensaje."""
+    comp_txt = f"[{comp}]".ljust(18)
+    prefix = f"{c(ts(), 'gray')} {c(level.ljust(5), *LEVEL_STYLE[level])} {c(comp_txt, 'blue')} "
+    indent = len(ts()) + 1 + 5 + 1 + len(comp_txt) + 1
+    # Mensajes con colores incrustados se dejan intactos (son cortos y el ANCHO visible no coincide).
+    lines = [msg] if "\033" in msg else wrap(msg, LINE_WIDTH - indent)
+    for i, ln in enumerate(lines):
+        ln = c(ln, *style) if style else ln
+        print((prefix if i == 0 else " " * indent) + ln)
     pause()
 
 
@@ -203,8 +289,14 @@ def clear():
     os.system("cls" if WINDOWS else "clear")
 
 
-def prompt_str():
-    return "PS C:\\dev\\ingress-svc> " if WINDOWS else "dev@ws-07:~/ingress-svc$ "
+def shell_path(cwd=()):
+    if WINDOWS:
+        return "C:\\dev\\ingress-svc" + "".join("\\" + p for p in cwd)
+    return "~/ingress-svc" + "".join("/" + p for p in cwd)
+
+
+def prompt_str(cwd=()):
+    return f"PS {shell_path(cwd)}> " if WINDOWS else f"dev@ws-07:{shell_path(cwd)}$ "
 
 
 def ask(text):
@@ -222,37 +314,37 @@ def hhmm(minutes):
 # ---------------------------------------------------------------------------
 # Emblema
 # ---------------------------------------------------------------------------
-_MIRROR = str.maketrans("/\\()<>[]{}", "\\/)(><][}{")
-
-# Mitad izquierda de cada fila + caracter central; se alinea al centro y la mitad derecha se refleja.
-EAGLE_HALF = [
-    (r"__", "_"),
-    (r"/ o", " "),
-    (r"\  ", "V"),
-    (r"_________________________         |  ", " "),
-    (r"\\\\\\\\\\\\\\\\\\\\\\\\____    _/   ", " "),
-    (r" \\\\\\\\\\\\\\\\\\\\\\\\\\\\__/ /|#", "#"),
-    (r"   \\\\\\\\\\\\\\\\\\\\\\\\\\\\\ |#", "#"),
-    (r"     \\\\\\\\\\\\\\\\\\\\\\\\\\\|#", "#"),
-    (r"        \\\\\\\\\\\\\\\\\\\\\\\\|#", "#"),
-    (r"            \\\\\\\\\\\\\\\\\\\\|#", "#"),
-    (r"                 \\\\\\\\\\\\\\\|#", "#"),
-    (r"                       \\\\\\\\\|#", "#"),
-    (r"/|", "|"),
-    (r"/ /|", "|"),
-    (r"/_/ |", "|"),
-    (r"^", "^"),
-]
+# Aguila de perfil mirando a la izquierda, con el ala levantada y las garras sobre una barra.
+EAGLE = r"""
+                                                     ,
+                                           ,        /|
+                                  ,       /|       / |
+                         ,       /|      / |      /  |
+                        /|      / |     /  |     /   |
+                       / |     /  |    /   |    /    /
+                      /  |    /   |   /    |   /    /
+               _.--._/   |   /    |  /     /  /    /
+            .-'  (@) '.  |  /     | /     /  /    /
+      __.--'          \  | /      |/     /  /    /
+    /'  ___            \ |/       /     /  /    /
+   |  .'   '-._         \|       /     /  /   .'
+    \/         '-.        \     /     /  /  .'
+                  '.       '._ /     / .' .'
+                    \         '-.___/.'_.'
+                     |                /
+                     |    WWWWWW     /
+                      \   WWWWWW   .'
+                       '.  WWWW  .'
+                         '-.__.-'
+                          // \\
+                    =====//===\\=====
+"""
 
 
 def eagle_lines():
-    out = []
-    width = max(len(left) for left, _ in EAGLE_HALF)
-    for left, mid in EAGLE_HALF:
-        left = left.rjust(width)
-        right = left[::-1].translate(_MIRROR)
-        out.append(left + mid + right)
-    return out
+    lines = EAGLE.strip("\n").split("\n")
+    width = max(len(ln) for ln in lines)
+    return [ln.ljust(width) for ln in lines]
 
 
 def show_emblem():
@@ -340,6 +432,25 @@ class Entrant:
         self.extra = []
         self.jorji = None
         self.bribe = 0
+        self.flaw = None   # tipo de error inyectado (para que el dialogo pueda dar pistas)
+        self.says = None   # lo que dice al llegar
+
+
+def pick_dialogue(e):
+    """Elige (o no) algo que el solicitante dice al llegar."""
+    roll = random.random()
+    if e.flaw in FLAW_LINES and roll < 0.35:
+        return random.choice(FLAW_LINES[e.flaw])
+    if roll < 0.45:
+        return None
+    p = e.docs.get("passport", {})
+    pm = e.docs.get("permit")
+    pools = [GREETINGS, SMALLTALK]
+    if p.get("nation") == HOME:
+        pools.append(HOME_LINES)
+    if pm:
+        pools.append(PURPOSE_LINES[pm["purpose"]])
+    return random.choice(random.choice(pools))
 
 
 def flaw_chance(day):
@@ -379,6 +490,7 @@ def gen_entrant(ctx, force_valid=False, person=None, nation=None):
         e.docs["vaccine"] = dict(name=e.name, pid=pid, vax=vax)
     if not force_valid and random.random() < flaw_chance(day):
         inject_flaw(e, ctx)
+    e.says = pick_dialogue(e)
     return e
 
 
@@ -442,6 +554,7 @@ def inject_flaw(e, ctx):
         e.docs["vaccine"]["pid"] = mutate_pid(p["pid"])
     elif kind == "vax_name":
         e.docs["vaccine"]["name"] = mutate_name(e.name)
+    e.flaw = kind
 
 
 def check(e, ctx):
@@ -532,69 +645,133 @@ def jorji_entrant(ctx):
         e.name, e.sex = JORJI
     e.jorji = kind
     if kind == "nodocs":
-        e.extra = [("WARN", "doc.manifest", f"sid={e.sid} entrant presented 0 documents"),
-                   ("INFO", "chat.relay", 'entrant_note="Hola, amigo! No traigo papeles, pero traigo buena '
-                                          'voluntad. Sin problemas. Solo dejame pasar."')]
+        e.says = "Hola, amigo! No traigo papeles, pero traigo buena voluntad. Sin problemas. Solo dejame pasar."
     elif kind == "cobrastan":
         pid = "CB-J0RJ-01"
         e.docs["passport"] = dict(name=e.name, sex="M", dob=dt.date(1947, 6, 1), nation="Cobrastan",
                                   city="Cobragrad", pid=pid, exp=future(today))
-        e.extra = [("ERROR", "registry.lookup", "nation='Cobrastan' not found in registry (did you mean: nothing?)"),
-                   ("INFO", "chat.relay", 'entrant_note="Ahora tengo pasaporte! Hecho por las mejores manos '
-                                          'de Cobrastan. Las mias."')]
+        e.extra = [("ERROR", "registry.lookup", "nation='Cobrastan' not found in registry (did you mean: nothing?)")]
+        e.says = "Ahora tengo pasaporte! Hecho por las mejores manos de Cobrastan. Las mias."
     elif kind == "crayon":
         e.docs["passport"] = dict(name=e.name, sex="M", dob=dt.date(1947, 6, 1), nation=HOME,
                                   city="Jorjigrad", pid="VK-J0RJ-11", exp=future(today))
-        e.extra = [("WARN", "ocr.engine", f"sid={e.sid} ink_type=CRAYON confidence=0.12 smell=strawberry"),
-                   ("INFO", "chat.relay", 'entrant_note="Pasaporte de Vostrokia. Muy oficial. Por favor no mires '
-                                          'la ciudad."')]
+        e.extra = [("WARN", "ocr.engine", f"sid={e.sid} ink_type=CRAYON confidence=0.12 smell=strawberry")]
+        e.says = "Pasaporte de Vostrokia. Muy oficial. Por favor no mires la ciudad."
     elif kind == "legal":
-        e.extra = [("INFO", "chat.relay", 'entrant_note="Esta vez todo legal! Jorji fue a oficina. Hizo fila. '
-                                          'Fila muy larga. Mucho sufrimiento. Verifica, amigo!"')]
+        e.says = "Esta vez todo legal! Jorji fue a oficina. Hizo fila. Fila muy larga. Mucho sufrimiento. Verifica, amigo!"
     elif kind == "gift":
         e.bribe = 15
-        e.extra = [("INFO", "payment.gateway", f"pending transfer amount=15cr from=jcostava "
-                                               f"memo=\"para mi amigo, por ser amigo\" (se acredita si approve)"),
-                   ("INFO", "chat.relay", 'entrant_note="Documentos en orden. Tambien regalo. Regalo no es '
-                                          'soborno si se dice regalo."')]
+        e.extra = [("INFO", "payment.gateway", 'pending transfer amount=15cr from=jcostava '
+                                               'memo="para mi amigo, por ser amigo" (se acredita si approve)')]
+        e.says = "Documentos en orden. Tambien regalo. Regalo no es soborno si se dice regalo."
     return e
 
 
 # ---------------------------------------------------------------------------
-# Render de documentos como logs
+# Documentos como carpetas navegables (./docs/<documento>)
 # ---------------------------------------------------------------------------
-DOC_LABEL = {"passport": "passport", "permit": "entry_permit", "workpass": "work_pass", "vaccine": "vax_cert"}
+DOC_DIR = {"passport": "passport", "permit": "entry_permit", "workpass": "work_pass", "vaccine": "vax_cert"}
+DOC_ALIASES = {
+    "passport": "passport", "pasaporte": "passport",
+    "entry_permit": "entry_permit", "permit": "entry_permit", "permiso": "entry_permit",
+    "work_pass": "work_pass", "workpass": "work_pass", "trabajo": "work_pass",
+    "vax_cert": "vax_cert", "vaxcert": "vax_cert", "vaccine": "vax_cert", "vacuna": "vax_cert",
+    "biometrics": "biometrics", "scale": "biometrics", "bascula": "biometrics",
+}
+FAKE_FILES = ["README.md", "pyproject.toml", "src/", "tests/", "docker-compose.yml"]
 
 
-def doc_line(kind, d, sid):
-    if kind == "passport":
-        return ("DEBUG", "passport.parser",
-                f'sid={sid} name="{d["name"]}" sex={d["sex"]} dob={d["dob"]} nation={d["nation"]} '
-                f'issuer_city={d["city"]} pid={d["pid"]} exp={d["exp"]}')
-    if kind == "permit":
-        return ("DEBUG", "permit.parser",
-                f'sid={sid} holder="{d["name"]}" pid_ref={d["pid"]} purpose={d["purpose"]} dur={d["dur"]} '
-                f'exp={d["exp"]} wt={d["weight"]}kg seal={d["seal"]}')
-    if kind == "workpass":
-        return ("DEBUG", "workpass.parser", f'sid={sid} holder="{d["name"]}" field={d["field"]} exp={d["exp"]}')
-    if kind == "vaccine":
-        return ("DEBUG", "vaxcert.parser",
-                f'sid={sid} holder="{d["name"]}" pid_ref={d["pid"]} vax=[{",".join(d["vax"])}]')
-    raise ValueError(kind)
+def doc_dirs(e):
+    """Carpetas presentes en ./docs para este solicitante, en orden."""
+    dirs = [DOC_DIR[k] for k in e.docs]
+    p = e.docs.get("passport")
+    if p and p["nation"] != HOME and e.scan_weight is not None:
+        dirs.append("biometrics")
+    return dirs
+
+
+def doc_fields(e, dirname):
+    rev = {v: k for k, v in DOC_DIR.items()}
+    if dirname == "biometrics":
+        return [("device", "SCALE-07B"), ("weight", f"{e.scan_weight} kg")]
+    d = e.docs[rev[dirname]]
+    if dirname == "passport":
+        return [("name", d["name"]), ("sex", d["sex"]), ("dob", d["dob"]), ("nation", d["nation"]),
+                ("issuer_city", d["city"]), ("pid", d["pid"]), ("exp", d["exp"])]
+    if dirname == "entry_permit":
+        return [("holder", d["name"]), ("pid_ref", d["pid"]), ("purpose", d["purpose"]),
+                ("duration", d["dur"]), ("exp", d["exp"]), ("weight", f"{d['weight']} kg"), ("seal", d["seal"])]
+    if dirname == "work_pass":
+        return [("holder", d["name"]), ("field", d["field"]), ("exp", d["exp"])]
+    return [("holder", d["name"]), ("pid_ref", d["pid"]), ("vaccines", ", ".join(d["vax"]))]
+
+
+def show_doc(e, dirname):
+    print(c(f"# docs/{dirname}/{dirname}.yaml   sid={e.sid}", "gray"))
+    for key, value in doc_fields(e, dirname):
+        print(f"  {c(key.ljust(12), 'cyan')}: {value}")
+
+
+def show_listing(e, cwd):
+    if not cwd:
+        entries = [c("docs/", "blue", "bold")] + FAKE_FILES
+    elif len(cwd) == 1:
+        entries = [c(d + "/", "blue", "bold") for d in doc_dirs(e)]
+    else:
+        show_doc(e, cwd[1])
+        return
+    print("  ".join(entries) if entries else c("(vacio)", "gray"))
+
+
+def resolve_doc(e, name):
+    """Nombre de carpeta de documento a partir de lo que escribio el jugador (acepta alias y prefijos)."""
+    name = name.lower()
+    if name.endswith(".yaml"):
+        name = name[:-5]
+    if name in DOC_ALIASES:
+        return DOC_ALIASES[name]
+    matches = {d for alias, d in DOC_ALIASES.items() if alias.startswith(name)}
+    return matches.pop() if len(matches) == 1 else None
+
+
+def resolve_path(e, cwd, arg):
+    """Devuelve la ruta destino (lista) o None si no existe."""
+    arg = (arg or "").strip().strip('"').replace("\\", "/")
+    if arg in ("", "~", "/"):
+        return []
+    path = list(cwd)
+    for part in [p for p in arg.split("/") if p]:
+        if part == ".":
+            continue
+        if part == "..":
+            path = path[:-1]
+        elif part.lower() == "docs" and not path:
+            path = ["docs"]
+        else:
+            doc = resolve_doc(e, part)
+            if doc is None or doc not in doc_dirs(e) or len(path) > 2:
+                return None
+            path = ["docs", doc]   # permite "cd passport" desde cualquier lugar
+    return path
+
+
+def path_error(cmd, cwd, arg):
+    if WINDOWS:
+        target = shell_path(cwd) + "\\" + arg.replace("/", "\\")
+        say(f"{cmd} : Cannot find path '{target}' because it does not exist.", indent=0, style=("red",))
+    else:
+        print(f"bash: {cmd}: {arg}: No such file or directory")
 
 
 def render(e, ctx, clock):
+    """Llegada de un solicitante: solo el resumen; los documentos se revisan en ./docs."""
     log("INFO", "ingress.gateway", f"session opened sid={e.sid} booth=WS-07 ref_ts={ctx.date}T{hhmm(clock)}")
     noise(random.randint(0, 2))
-    if e.docs:
-        log("DEBUG", "doc.manifest", f"sid={e.sid} docs=[{', '.join(DOC_LABEL[k] for k in e.docs)}]")
-    lines = [doc_line(k, d, e.sid) for k, d in e.docs.items()]
-    if "passport" in e.docs and e.docs["passport"]["nation"] != HOME and e.scan_weight is not None:
-        lines.append(("TRACE", "biometrics.scale", f"sid={e.sid} weight_kg={e.scan_weight}"))
-    lines += e.extra
-    for ln in lines:
-        if random.random() < 0.35:
-            noise()
+    dirs = doc_dirs(e)
+    log("DEBUG", "doc.manifest", f"sid={e.sid} mounted {len(dirs)} docs at ./docs: {', '.join(dirs) or '-'}")
+    if e.says:
+        log("INFO", "chat.relay", f'{e.name}: "{e.says}"', style=("magenta",) if e.jorji else ("white",))
+    for ln in e.extra:
         log(*ln)
     log("INFO", "ingress.gateway", f"sid={e.sid} state=PENDING_REVIEW")
 
@@ -635,10 +812,15 @@ def delete_save():
 def print_help():
     print(c("usage: ingress-svc <command> [args]", "white"))
     rows = [
+        ("cd docs", "entrar a la carpeta de documentos del solicitante"),
+        ("cd <documento>", "abrir un documento (passport, entry_permit, ...)"),
+        ("cd .. | cd ~", "subir un nivel | volver a la raiz"),
+        ("ls | dir", "listar la carpeta actual (o mostrar el documento)"),
+        ("cat <documento>", "mostrar un documento sin entrar a el"),
         ("approve | a", "aprobar al solicitante actual"),
         ("deny | d [motivo]", "denegar (motivo correcto = bono)"),
         ("rules | r", "ver politica vigente (ciudades, sellos, buscados...)"),
-        ("logs | l", "volver a mostrar los documentos del solicitante"),
+        ("logs | l", "volver a mostrar la llegada del solicitante"),
         ("status | s", "creditos, citaciones, hora del turno"),
         ("boss | b", "PANICO: limpia pantalla y muestra un build falso"),
         ("clear | cls", "limpiar pantalla"),
@@ -646,7 +828,7 @@ def print_help():
     ]
     for cmd, desc in rows:
         print(f"  {cmd.ljust(20)} {c(desc, 'gray')}")
-    print(c("motivos: " + ", ".join(REASONS), "gray"))
+    say("motivos: " + ", ".join(REASONS), indent=0, style=("gray",))
 
 
 def print_rules(ctx):
@@ -680,7 +862,7 @@ def print_rules(ctx):
             L.append(f"  {n}: [{', '.join(cities)}]")
     L.append("deny_reasons: [" + ", ".join(REASONS) + "]")
     for ln in L:
-        print(c(ln, "yellow") if ln.startswith("#") else ln)
+        say(ln, indent=0, style=("yellow",) if ln.startswith("#") else None)
 
 
 def boss_mode():
@@ -695,7 +877,7 @@ def boss_mode():
              "tests/test_scheduler.py", "tests/test_metrics.py"]
     pct = 0
     for f in files:
-        n = random.randint(30, 55)
+        n = random.randint(30, 45)
         pct = min(100, pct + random.randint(18, 24)) if f != files[-1] else 100
         dots = ""
         for _ in range(n):
@@ -703,27 +885,19 @@ def boss_mode():
             if not Cfg.fast:
                 time.sleep(0.01)
         print(f"{f} {c(dots, 'green')} [{pct:3d}%]")
-    print(c(f"============================= 214 passed in {random.uniform(9, 16):.2f}s ==============================",
-            "green"))
-
-
-FAKE_FILES = ["README.md", "pyproject.toml", "src", "tests", "docker-compose.yml", ".env.example"]
+    print(c(f" 214 passed in {random.uniform(9, 16):.2f}s ".center(79, "="), "green"))
 
 
 def fake_shell(cmd):
     """Respuestas creibles para comandos comunes, para no romper el disfraz."""
     base = cmd.split()[0].lower()
-    if base in ("ls", "dir"):
-        print("  ".join(FAKE_FILES))
-    elif cmd.startswith("git status"):
+    if cmd.startswith("git status"):
         print("On branch main\nYour branch is up to date with 'origin/main'.\n\nnothing to commit, working tree clean")
     elif cmd.startswith("git"):
         print(c("Already up to date.", "gray"))
-    elif base in ("pwd", "cd"):
-        print("C:\\dev\\ingress-svc" if WINDOWS else "/home/dev/ingress-svc")
     elif WINDOWS:
-        print(c(f"{base} : The term '{base}' is not recognized as the name of a cmdlet, function, "
-                f"script file, or operable program.", "red"))
+        say(f"{base} : The term '{base}' is not recognized as the name of a cmdlet, function, "
+            f"script file, or operable program.", indent=0, style=("red",))
     else:
         print(f"bash: {base}: command not found")
 
@@ -734,10 +908,13 @@ def fake_shell(cmd):
 def ambient_message():
     roll = random.random()
     if roll < 0.10:
-        log("INFO", "chat.relay", c(f"msg from @jcostava: {random.choice(JORJI_CHAT)}", "magenta"))
-    elif roll < 0.14:
+        log("INFO", "chat.relay", f"msg from @jcostava: {random.choice(JORJI_CHAT)}", style=("magenta",))
+    elif roll < 0.17:
+        user, text = random.choice(COWORKER_MSGS)
+        log("INFO", "chat.relay", f"msg from @{user}: {text}", style=("cyan",))
+    elif roll < 0.21:
         log("INFO", "mail.daemon", f"new message from=familia: \"{random.choice(FAMILY_MSGS)}\"")
-    elif roll < 0.18:
+    elif roll < 0.25:
         log("WARN", "ministry.notice", random.choice(MINISTRY_MSGS))
 
 
@@ -775,17 +952,20 @@ def decide(action, reason, e, ctx, st, shift):
             detail = "el solicitante cumplia todos los requisitos"
         else:
             detail = "; ".join(REASONS[r] for r in sorted(truth))
-        log("WARN", "audit.ministry", c(f"CITATION #{shift.bad} sid={e.sid} :: {detail}", "yellow"))
+        log("WARN", "audit.ministry", f"CITATION #{shift.bad} sid={e.sid} :: {detail}", style=("yellow",))
         if shift.bad > 2:
             shift.fines += CITATION_FINE
             st["credits"] -= CITATION_FINE
             log("WARN", "payroll", f"citation penalty=-{CITATION_FINE}cr")
         else:
             log("DEBUG", "audit.ministry", f"warning {shift.bad}/2 issued (sin multa)")
+    if not e.jorji and random.random() < 0.35:
+        reply = random.choice(REACT_APPROVED if action == "approve" else REACT_DENIED)
+        log("INFO", "chat.relay", f'{e.name}: "{reply}"', style=("white",))
     if e.jorji:
         approve_msg, deny_msg = JORJI_REPLY[e.jorji]
-        log("INFO", "chat.relay", c(f"msg from @jcostava: {approve_msg if action == 'approve' else deny_msg}",
-                                    "magenta"))
+        log("INFO", "chat.relay", f"msg from @jcostava: {approve_msg if action == 'approve' else deny_msg}",
+            style=("magenta",))
         if action == "approve" and e.bribe:
             st["credits"] += e.bribe
             shift.earned += e.bribe
@@ -804,7 +984,7 @@ def day_intro(ctx, st):
         for m in MINISTRY_INTRO:
             log("INFO", "ministry.mail", m)
     for news in POLICY_NEWS.get(ctx.day, []):
-        log("WARN", "policy.update", c(news, "yellow"))
+        log("WARN", "policy.update", news, style=("yellow",))
     if ctx.wanted:
         log("WARN", "policy.update", "wanted_list=[" + "; ".join(n for n, _ in ctx.wanted) + "]")
     sick = [m["name"] for m in st["family"] if m["alive"] and m["sick"]]
@@ -812,6 +992,8 @@ def day_intro(ctx, st):
         log("WARN", "mail.daemon", f"new message from=familia: \"{', '.join(sick)} sigue(n) enfermo(s). "
                                    f"Necesitamos medicina.\"")
     log("DEBUG", "cli", "escribe 'help' para ver comandos, 'rules' para la politica vigente")
+    log("DEBUG", "cli", "los documentos de cada solicitante se montan en ./docs "
+                        "(cd docs, ls, cd passport, cd ..)")
     noise(1)
 
 
@@ -827,9 +1009,10 @@ def play_day(st):
         n += 1
         e = jorji_entrant(ctx) if n == jorji_pos else gen_entrant(ctx)
         render(e, ctx, clock)
+        cwd = []
         t_last = time.monotonic()
         while True:
-            raw = ask(prompt_str()).strip()
+            raw = ask(prompt_str(cwd)).strip()
             now = time.monotonic()
             clock += min(now - t_last, MAX_IDLE) * REAL_TO_GAME
             t_last = now
@@ -838,6 +1021,37 @@ def play_day(st):
             parts = raw.split()
             cmd = parts[0].lower()
             arg = parts[1].lower() if len(parts) > 1 else None
+            # "cd.." y "cd\" (sin espacio) tambien funcionan en Windows
+            if cmd.startswith("cd") and len(cmd) > 2 and cmd[2] in "./\\":
+                cmd, arg = "cd", cmd[2:]
+            if cmd in ("cd", "set-location", "chdir"):
+                target = resolve_path(e, cwd, arg)
+                if target is None:
+                    path_error("Set-Location" if WINDOWS else "cd", cwd, arg)
+                elif target != cwd:
+                    cwd = target
+                    if cwd:
+                        show_listing(e, cwd)
+                continue
+            if cmd in ("ls", "dir", "ll", "get-childitem"):
+                target = resolve_path(e, cwd, arg) if arg else cwd
+                if target is None:
+                    path_error("Get-ChildItem" if WINDOWS else "ls", cwd, arg)
+                else:
+                    show_listing(e, target)
+                continue
+            if cmd in ("cat", "type", "more", "less", "get-content"):
+                target = resolve_path(e, cwd, arg) if arg else cwd
+                if target is None:
+                    path_error("Get-Content" if WINDOWS else "cat", cwd, arg or "")
+                elif len(target) == 2:
+                    show_doc(e, target[1])
+                else:
+                    say(f"{cmd}: {arg or '.'}: Is a directory", indent=0, style=("red",))
+                continue
+            if cmd == "pwd":
+                print(shell_path(cwd))
+                continue
             if cmd in ("approve", "a", "ok"):
                 decide("approve", None, e, ctx, st, shift)
                 break
@@ -948,8 +1162,8 @@ def game_over(reason, st):
     elif reason == "family":
         log("FATAL", "ministry.notice", "No quedan miembros registrados en su unidad familiar.")
         log("FATAL", "ministry.notice", "Su puesto ha sido reasignado. Gloria a Vostrokia.")
-    log("INFO", "chat.relay", c("msg from @jcostava: Amigo... Jorji lo siente mucho. Si necesitas algo, "
-                                "Jorji conoce a alguien. Siempre conoce a alguien.", "magenta"))
+    log("INFO", "chat.relay", "msg from @jcostava: Amigo... Jorji lo siente mucho. Si necesitas algo, "
+                              "Jorji conoce a alguien. Siempre conoce a alguien.", style=("magenta",))
     log("ERROR", "systemd", "ingress-monitor.service: Main process exited, code=exited, status=1/FAILURE")
     delete_save()
 
@@ -966,8 +1180,8 @@ def victory(st):
     else:
         log("INFO", "ministry.mail", "Desempeno ACEPTABLE. Su contrato remoto se renueva. Nadie esta sorprendido.")
     log("INFO", "family.monitor", f"familia presente: [{', '.join(alive) or 'nadie'}]")
-    log("INFO", "chat.relay", c("msg from @jcostava: Amigo! Jorji abre restaurante en Grestavo. Primera comida "
-                                "gratis para ti. Segunda tambien. Tercera... hablamos.", "magenta"))
+    log("INFO", "chat.relay", "msg from @jcostava: Amigo! Jorji abre restaurante en Grestavo. Primera comida "
+                              "gratis para ti. Segunda tambien. Tercera... hablamos.", style=("magenta",))
     print()
     print("  " + c("*  *  *   GLORIA A VOSTROKIA   *  *  *", "byellow", "bold"))
     print()
@@ -1048,17 +1262,19 @@ def print_howto():
     print()
     print(c("# COMO JUGAR", "yellow"))
     for ln in [
-        "Cada solicitante llega como un bloque de logs (passport.parser, permit.parser, ...).",
+        "Cada solicitante llega como unas lineas de log. Sus documentos se montan como carpetas en ./docs:",
+        "  cd docs        ver que documentos trae (ls para listar)",
+        "  cd passport    abrir un documento; cd .. para regresar",
         "Compara los campos contra la politica del dia (comando 'rules') y decide:",
-        "  a            aprobar",
-        "  d <motivo>   denegar; si aciertas el motivo ganas +2cr de bono",
-        f"  motivos:     {', '.join(REASONS)}",
+        "  a              aprobar",
+        "  d <motivo>     denegar; si aciertas el motivo ganas +2cr de bono",
+        f"  motivos:       {', '.join(REASONS)}",
         "Cada dia hay reglas nuevas. Si te equivocas recibes una citacion (las 2 primeras son gratis).",
         "Al final del turno pagas renta, comida, calefaccion y medicina para tu familia.",
         "Si alguien se acerca: 'b' limpia la pantalla y muestra un build falso. Luego 'logs' para volver.",
         "Escribe 'help' durante el juego para ver todos los comandos.",
     ]:
-        print("  " + ln)
+        say(ln)
     print()
 
 

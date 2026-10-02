@@ -85,8 +85,10 @@ renta, comida, calefacción y medicina para tu familia. Jorji Costava aparece de
 vez en cuando, en la fila y por chat, y tus compañeros de otros puestos también
 escriben de vez en cuando.
 
-Ningún texto pasa de 80 caracteres por línea: los mensajes largos se cortan y
-continúan alineados debajo.
+Ningún texto pasa de 120 caracteres por línea: los mensajes más largos se cortan
+y continúan alineados debajo. Se ve mejor con la terminal en pantalla completa o
+al menos de 120 columnas de ancho (el ancho se ajusta con `LINE_WIDTH` al inicio
+de `ingress_monitor.py`).
 
 ## Versiones
 

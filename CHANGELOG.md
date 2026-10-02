@@ -3,6 +3,14 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y [Versionado Semántico](https://semver.org/lang/es/): `MAYOR.MENOR.PARCHE`.
 
+## [1.1.1] - 2026-10-02
+
+### Cambiado
+- Nuevo emblema: águila heráldica de perfil en pleno vuelo, con las alas desplegadas, ceño y
+  pico ganchudo, y las garras al frente, como en un escudo de bandera.
+- El ancho máximo de línea sube de 80 a 120 caracteres para que los logs se vean como los de
+  una terminal normal (la mayoría de los mensajes vuelven a caber en una sola línea).
+
 ## [1.1.0] - 2026-10-02
 
 ### Agregado
